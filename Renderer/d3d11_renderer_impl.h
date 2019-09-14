@@ -106,13 +106,14 @@ namespace end
 			default_view.view_mat = (float4x4_a&)XMMatrixInverse(nullptr, XMMatrixLookAtLH(eyepos, focus, up));
 			default_view.proj_mat = (float4x4_a&)XMMatrixPerspectiveFovLH(3.1415926f / 4.0f, aspect, 0.01f, 100.0f);
 
-			// PARTICLE CREATION
+			/////////////////// PARTICLE CREATION ///////////////////
 			end::float3 origin = { 0.0f,0.0f,0.0f };
 			end::float4 init_color = { 1.0f,1.0f,1.0f,1.0f };
 			create_emitters(origin, init_color);
 			create_particles(&emitters[0], origin, init_color);
 			create_particles(&emitters[1], origin, init_color);
 			create_particles(&emitters[2], origin, init_color);
+			/////////////////////////////////////////////////////////
 			timer.Restart();
 		}
 
@@ -120,11 +121,12 @@ namespace end
 		bool goingDown = false;
 		void draw_view(view_t& view)
 		{
-			// TIMER //
+			// TIMER Update //
 			timer.Signal();
 			float deltaT = timer.Delta();
-			///////////
+			/////////////////
 
+			// Fill Color
 			const float4 black{ 0.0f, 0.0f, 0.0f, 1.0f };
 
 			context->OMSetDepthStencilState(depthStencilState[STATE_DEPTH_STENCIL::DEFAULT], 1);
@@ -152,7 +154,7 @@ namespace end
 			context->UpdateSubresource(constant_buffer[CONSTANT_BUFFER::MVP], 0, NULL, &mvp, 0, 0);
 
 			// The Cube
-			//context->Draw(36, 0);
+			///context->Draw(36, 0);
 
 			// Draw Debug Line Stuff //
 			draw_debug_grid(view);
@@ -160,9 +162,9 @@ namespace end
 
 
 			// Particles //
-			update_particles(&emitters[0], &timer, { 1.0f,0.0f,0.0f,1.0f });
-			update_particles(&emitters[1], &timer, { 0.0f,1.0f,0.0f,1.0f });
-			update_particles(&emitters[2], &timer, { 0.0f,0.0f,1.0f,1.0f });
+			update_particles(&emitters[0], deltaT, { 1.0f,0.0f,0.0f,1.0f });
+			update_particles(&emitters[1], deltaT, { 0.0f,1.0f,0.0f,1.0f });
+			update_particles(&emitters[2], deltaT, { 0.0f,0.0f,1.0f,1.0f });
 			draw_debug_lines(view);
 			//////////////
 
@@ -280,13 +282,11 @@ namespace end
 			}
 		}
 
-		void update_particles(Emitter* em, XTime* xT, end::float4 nColor)
+		void update_particles(Emitter* em, float dT, end::float4 nColor)
 		{
 			int size = em->parti_indices.size();
 			for (int i = 0; i < size; i++)
 			{
-				xT->Signal();
-				float dT = xT->Delta();
 
 				if (particles[em->parti_indices[i]].life > 1.0f)
 				{
@@ -296,7 +296,7 @@ namespace end
 
 
 				end::float3 dir;
-				for (int n = 0; n < 3; n++)
+				for (int n = 0; n < 0; n++) // ZEROED to skip over
 				{
 					int rng = rand();
 					if (rng % 2 == 0)
@@ -308,7 +308,7 @@ namespace end
 					if (rng % 2 == 0)
 						dir.y = rand() * 0.01f;
 					else
-						dir.y = rand() * -0.01f;
+						dir.y = rand() * 0.01f;
 
 					rng = rand();
 					if (rng % 2 == 0)
@@ -316,12 +316,16 @@ namespace end
 					else
 						dir.z = rand() * -0.01f;
 				}
+				// fountain math
+				dir.x = sinf(dT);
+				dir.y = 0.001f;
+				dir.z = cosf(dT) * cosf(dT);
 				float scalar = dT * 9.86f;
 				//dir.x = dT;
 				//dir.y = dir.x * scalar;
 				Particle nP = particles[em->parti_indices[i]];
 				nP.prev_pos = nP.pos;
-				nP.pos = nP.pos + (dir * scalar) * 20;
+				nP.pos = nP.pos + (dir * scalar);
 				nP.color = (nColor);
 				nP.color.w = 1.0f;
 				nP.life += dT * 1000.0f;
