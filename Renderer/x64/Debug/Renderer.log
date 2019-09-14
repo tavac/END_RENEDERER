@@ -1,0 +1,5 @@
+﻿  renderer.cpp
+c:\users\caiot\onedrive - full sail university\documents\class work\bachelors\enginedev\rendererzip\1) renderer\renderer\d3d11_renderer_impl.h(125): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+c:\users\caiot\onedrive - full sail university\documents\class work\bachelors\enginedev\rendererzip\1) renderer\renderer\d3d11_renderer_impl.h(285): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+c:\users\caiot\onedrive - full sail university\documents\class work\bachelors\enginedev\rendererzip\1) renderer\renderer\d3d11_renderer_impl.h(289): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+  Renderer.vcxproj -> C:\Users\caiot\OneDrive - Full Sail University\Documents\Class Work\Bachelors\EngineDev\RendererZip\1) Renderer\x64\Debug\Renderer.exe
