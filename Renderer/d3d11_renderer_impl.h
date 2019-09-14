@@ -38,29 +38,29 @@ namespace end
 		// Device, swapchain, resource views, states, etc. can be members here
 		HWND hwnd;
 
-		ID3D11Device *device = nullptr;
-		ID3D11DeviceContext *context = nullptr;
-		IDXGISwapChain *swapchain = nullptr;
+		ID3D11Device* device = nullptr;
+		ID3D11DeviceContext* context = nullptr;
+		IDXGISwapChain* swapchain = nullptr;
 
-		ID3D11RenderTargetView*		render_target[VIEW_RENDER_TARGET::COUNT]{};
+		ID3D11RenderTargetView* render_target[VIEW_RENDER_TARGET::COUNT]{};
 
-		ID3D11DepthStencilView*		depthStencilView[VIEW_DEPTH_STENCIL::COUNT]{};
+		ID3D11DepthStencilView* depthStencilView[VIEW_DEPTH_STENCIL::COUNT]{};
 
-		ID3D11DepthStencilState*	depthStencilState[STATE_DEPTH_STENCIL::COUNT]{};
+		ID3D11DepthStencilState* depthStencilState[STATE_DEPTH_STENCIL::COUNT]{};
 
-		ID3D11RasterizerState*		rasterState[STATE_RASTERIZER::COUNT]{};
+		ID3D11RasterizerState* rasterState[STATE_RASTERIZER::COUNT]{};
 
-		ID3D11Buffer*				vertex_buffer[VERTEX_BUFFER::COUNT]{};
+		ID3D11Buffer* vertex_buffer[VERTEX_BUFFER::COUNT]{};
 
-		ID3D11Buffer*				index_buffer[INDEX_BUFFER::COUNT]{};
+		ID3D11Buffer* index_buffer[INDEX_BUFFER::COUNT]{};
 
-		ID3D11InputLayout*			input_layout[INPUT_LAYOUT::COUNT]{};
+		ID3D11InputLayout* input_layout[INPUT_LAYOUT::COUNT]{};
 
-		ID3D11VertexShader*			vertex_shader[VERTEX_SHADER::COUNT]{};
+		ID3D11VertexShader* vertex_shader[VERTEX_SHADER::COUNT]{};
 
-		ID3D11PixelShader*			pixel_shader[PIXEL_SHADER::COUNT]{};
+		ID3D11PixelShader* pixel_shader[PIXEL_SHADER::COUNT]{};
 
-		ID3D11Buffer*				constant_buffer[CONSTANT_BUFFER::COUNT]{};
+		ID3D11Buffer* constant_buffer[CONSTANT_BUFFER::COUNT]{};
 
 		D3D11_VIEWPORT				view_port[VIEWPORT::COUNT]{};
 
@@ -70,7 +70,7 @@ namespace end
 		ID3D11BlendState*			blend_state[STATE_BLEND::COUNT]{};
 		*/
 
-		ID3D11Buffer*				debugline_constBuff[CONSTANT_BUFFER::COUNT]{};
+		ID3D11Buffer* debugline_constBuff[CONSTANT_BUFFER::COUNT]{};
 
 		///////////// PARTICLES /////////////////////
 		Emitter emitters[NUM_OF_EMITTERS];
@@ -107,12 +107,8 @@ namespace end
 			default_view.proj_mat = (float4x4_a&)XMMatrixPerspectiveFovLH(3.1415926f / 4.0f, aspect, 0.01f, 100.0f);
 
 			/////////////////// PARTICLE CREATION ///////////////////
-			end::float3 origin = { 0.0f,0.0f,0.0f };
-			end::float4 init_color = { 1.0f,1.0f,1.0f,1.0f };
-			create_emitters(origin, init_color);
-			create_particles(&emitters[0], origin, init_color);
-			create_particles(&emitters[1], origin, init_color);
-			create_particles(&emitters[2], origin, init_color);
+			create_emitters(W_ORIGIN, WHITE);
+			create_particles(emitters, NUM_OF_EMITTERS, W_ORIGIN, WHITE);
 			/////////////////////////////////////////////////////////
 			timer.Restart();
 		}
@@ -166,6 +162,7 @@ namespace end
 			update_particles(&emitters[1], deltaT, { 0.0f,1.0f,0.0f,1.0f });
 			update_particles(&emitters[2], deltaT, { 0.0f,0.0f,1.0f,1.0f });
 			draw_debug_lines(view);
+			create_particles(emitters, NUM_OF_EMITTERS, { 1.0f,1.0f,1.0f }, WHITE);
 			//////////////
 
 			swapchain->Present(1u, 0u);
@@ -255,43 +252,50 @@ namespace end
 			}
 		}
 
-		void create_particles(Emitter* em, end::float3 pos, end::float4 color)
+		void create_particles(Emitter* em, int numOfEm, end::float3 pos, end::float4 color)
 		{
-			for (int i = 0; i < numOfParticles; i++)
+			int lastUsedPtcle = 0;
+			for (int i = 0; i < numOfEm; i++)
 			{
-				Particle p;
-				p.prev_pos = pos;
-				p.pos = pos;
-				p.color = color;
-				// Check Particle pool for free spot
-				int p_index = particles.alloc();
-				if (p_index == -1)
-					return;
-				else 
-					particles[p_index] = p;
-
-				// Check Emitter for free spot
-				int e_index = em->parti_indices.alloc();
-				if (e_index == -1)
+				for (; lastUsedPtcle < (numOfParticles / numOfEm) * i + 1; lastUsedPtcle++)
 				{
-					particles.free(p_index); // Emitter had no empty spot for this particle so put it back.
-					return;
+					Particle p;
+					p.prev_pos = pos;
+					p.pos = pos;
+					p.color = color;
+					// Check Particle pool for free spot
+					int p_index = particles.alloc();
+					if (p_index < 0)
+						return;
+					else
+						particles[p_index] = p;
+
+					// Check Emitter for free spot
+					int e_index = em[i].parti_indices.alloc();
+					if (e_index < 0)
+					{
+						particles.free(p_index); // Emitter had no empty spot for this particle so put it back.
+						return;
+					}
+					else
+						em[i].parti_indices[e_index] = p_index;
 				}
-				else
-					em->parti_indices[e_index] = p_index;
 			}
 		}
 
 		void update_particles(Emitter* em, float dT, end::float4 nColor)
 		{
+			// Timer for dispersing particles at different rates
+			XTime sepTimer;
 			int size = em->parti_indices.size();
 			for (int i = 0; i < size; i++)
 			{
+				float s_dT = sepTimer.Delta();
 
-				if (particles[em->parti_indices[i]].life > 1.0f)
+				if (particles[em->parti_indices[i]].life > 3.0f)
 				{
 					kill_particle(em, i);
-					continue;
+					return;
 				}
 
 
@@ -300,27 +304,27 @@ namespace end
 				{
 					int rng = rand();
 					if (rng % 2 == 0)
-						dir.x = rand() * 0.01f;
+						dir.x = cosf(rand()) * 1.0f;
 					else
-						dir.x = rand() * -0.01f;
+						dir.x = cosf(rand()) * -1.0f;
 
 					rng = rand();
 					if (rng % 2 == 0)
-						dir.y = rand() * 0.01f;
+						dir.y = sinf(rand()) * 0.10f;
 					else
-						dir.y = rand() * 0.01f;
+						dir.y = sinf(rand()) * 0.10f;
 
 					rng = rand();
 					if (rng % 2 == 0)
-						dir.z = rand() * 0.01f;
+						dir.z = cosf(rand()) * 1.0f;
 					else
-						dir.z = rand() * -0.01f;
+						dir.z = cosf(rand()) * -1.0f;
 				}
 				// fountain math
-				dir.x = sinf(dT);
-				dir.y = 0.001f;
-				dir.z = cosf(dT) * cosf(dT);
-				float scalar = dT * 9.86f;
+				dir.x = 0.01f;
+				dir.y = sinf(dT);
+				dir.z = 0;
+				float scalar = -9.86f;
 				//dir.x = dT;
 				//dir.y = dir.x * scalar;
 				Particle nP = particles[em->parti_indices[i]];
@@ -328,7 +332,7 @@ namespace end
 				nP.pos = nP.pos + (dir * scalar);
 				nP.color = (nColor);
 				nP.color.w = 1.0f;
-				nP.life += dT * 1000.0f;
+				nP.life += sinf(dT) * 0.1f;
 				particles[em->parti_indices[i]] = nP;
 				end::float4 p = { particles[em->parti_indices[i]].prev_pos.x, particles[em->parti_indices[i]].prev_pos.y, particles[em->parti_indices[i]].prev_pos.z, 1.0f };
 				end::float4 q = { particles[em->parti_indices[i]].pos.x, particles[em->parti_indices[i]].pos.y, particles[em->parti_indices[i]].pos.z, 1.0f };
@@ -403,7 +407,7 @@ namespace end
 			GetClientRect(hwnd, &crect);
 
 			// Setup the viewport
-			D3D11_VIEWPORT &vp = view_port[VIEWPORT::DEFAULT];
+			D3D11_VIEWPORT& vp = view_port[VIEWPORT::DEFAULT];
 
 			vp.Width = (float)crect.right;
 			vp.Height = (float)crect.bottom;
@@ -458,7 +462,7 @@ namespace end
 			ID3D11Texture2D* pBackBuffer;
 			// Get a pointer to the back buffer
 			HRESULT hr = swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D),
-				(LPVOID*)&pBackBuffer);
+				(LPVOID*)& pBackBuffer);
 
 			assert(!FAILED(hr));
 
@@ -473,7 +477,7 @@ namespace end
 		{
 			/* DEPTH_BUFFER */
 			D3D11_TEXTURE2D_DESC depthBufferDesc;
-			ID3D11Texture2D *depthStencilBuffer;
+			ID3D11Texture2D* depthStencilBuffer;
 
 			ZeroMemory(&depthBufferDesc, sizeof(depthBufferDesc));
 

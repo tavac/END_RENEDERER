@@ -4,6 +4,8 @@
 
 #define NUM_OF_EMITTERS 3
 #define numOfParticles 1024
+#define W_ORIGIN { 0.0f,0.0f,0.0f }
+#define WHITE { 1.0f,1.0f,1.0f,1.0f }
 
 struct Particle
 {
