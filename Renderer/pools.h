@@ -65,7 +65,7 @@ namespace end
 			{
 				int16_t index = free_start;
 				free_start = pool[index].next;
-				size++;
+				size++; // size of used space
 				return index;
 			}
 			else
@@ -77,13 +77,13 @@ namespace end
 		{
 			pool[index].next = free_start;
 			free_start = index;
-			size--; // size of free space
+			size--; // size of used space
 		};
 
 		// Initializes the free list
 		pool_t() 
 		{
-			for (int i = 0; i < N; i++)
+			for (int i = 0; i < N-1; i++)
 			{
 				pool[i].next = i + 1;
 			}

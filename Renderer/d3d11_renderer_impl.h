@@ -107,8 +107,10 @@ namespace end
 			default_view.proj_mat = (float4x4_a&)XMMatrixPerspectiveFovLH(3.1415926f / 4.0f, aspect, 0.01f, 100.0f);
 
 			/////////////////// PARTICLE CREATION ///////////////////
-			create_emitters(W_ORIGIN, WHITE);
-			create_particles(emitters, NUM_OF_EMITTERS, W_UP, WHITE);
+			create_emitters(0, W_ORIGIN, WHITE);
+			create_emitters(1, { 10,0,0 }, WHITE);
+			create_emitters(2, { -10,0,0 }, WHITE);
+			create_particles(NUM_OF_EMITTERS,0, W_UP, WHITE);
 			/////////////////////////////////////////////////////////
 			timer.Restart();
 		}
@@ -158,11 +160,15 @@ namespace end
 
 
 			// Particles //
-			update_particles(&emitters[0], deltaT, { 1.0f,0.0f,0.0f,1.0f });
-			update_particles(&emitters[1], deltaT, { 0.0f,1.0f,0.0f,1.0f });
-			update_particles(&emitters[2], deltaT, { 0.0f,0.0f,1.0f,1.0f });
+			create_particles(NUM_OF_EMITTERS, 0, W_UP, WHITE);
+			update_particles(0, deltaT, { 1.0f,0.0f,0.0f,1.0f });
+			
+			create_particles(NUM_OF_EMITTERS, 1, W_UP, WHITE);
+			update_particles(1, deltaT, { 0.0f,1.0f,0.0f,1.0f });
+			
+			create_particles(NUM_OF_EMITTERS, 2, W_UP, WHITE);
+			update_particles(2, deltaT, { 0.0f,0.0f,1.0f,1.0f });
 			draw_debug_lines(view);
-			create_particles(emitters, NUM_OF_EMITTERS, { 0.0f,1.0f,0.0f }, WHITE);
 			//////////////
 
 			swapchain->Present(1u, 0u);
@@ -241,60 +247,55 @@ namespace end
 			context->Draw((UINT)end::debug_renderer::get_line_vert_count(), 0u);
 		}
 
-		void create_emitters(end::float3 pos, end::float4 color)
+		void create_emitters(int8_t emitter_index, end::float3 pos, end::float4 color)
 		{
-			for (int i = 0; i < NUM_OF_EMITTERS; i++)
-			{
-				Emitter emitter;
-				emitter.origin = pos;
-				emitter.init_color = color;
-				emitters[i] = emitter;
-			}
+
+			Emitter emitter;
+			emitter.origin = pos;
+			emitter.init_color = color;
+			emitters[emitter_index] = emitter;
 		}
 
-		void create_particles(Emitter* em, int numOfEm, end::float3 pos, end::float4 color)
+		void create_particles(int numOfEm, int start_em, end::float3 pos, end::float4 color)
 		{
-			
-			for (int i = 0; i < numOfEm; i++)
+			int currPrtcle = 0;
+			for (int i = start_em; i < numOfEm; i++)
 			{
-				for (int lastUsedPtcle = 0; lastUsedPtcle < (numOfParticles / numOfEm); lastUsedPtcle++)
+				for (; currPrtcle < (numOfParticles / numOfEm) * (i + 1); currPrtcle++)
 				{
 					Particle p;
-					p.prev_pos = pos;
-					p.pos = pos;
+					p.prev_pos = emitters[i].origin;
+					p.pos = emitters[i].origin;
 					p.color = color;
 					// Check Particle pool for free spot
 					int p_index = particles.alloc();
 					if (p_index < 0)
-						return;
+						return; // No more particles
 					else
 						particles[p_index] = p;
 
 					// Check Emitter for free spot
-					int e_index = em[i].parti_indices.alloc();
+					int e_index = emitters[i].parti_indices.alloc();
 					if (e_index < 0)
 					{
 						particles.free(p_index); // Emitter had no empty spot for this particle so put it back.
-						return;
+						break; // try next emitter
 					}
 					else
-						em[i].parti_indices[e_index] = p_index;
+						emitters[i].parti_indices[e_index] = p_index;
 				}
 			}
 		}
 
-		void update_particles(Emitter* em, float dT, end::float4 nColor)
+		void update_particles(int16_t em_index, float dT, end::float4 nColor)
 		{
 			// Timer for dispersing particles at different rates
-			XTime sepTimer;
-			int size = em->parti_indices.size();
+			int size = emitters[em_index].parti_indices.size();
 			for (int i = 0; i < size; i++)
 			{
-				float s_dT = sepTimer.Delta();
-
-				if (particles[em->parti_indices[i]].life > 2.0f)
+				if (particles[emitters[em_index].parti_indices[i]].life > 2.0f)
 				{
-					kill_particle(em, i);
+					kill_particle(&emitters[em_index], i);
 					i--;
 					return;
 				}
@@ -325,19 +326,23 @@ namespace end
 				dir.x = (cosf(i * i) * sinf(-i));// cosf(dT * (3.14156 / 180)) * 0.1f;
 				dir.y = tanf(i) * sinf(dir.x * dir.x);
 				dir.z = (sinf(i * i) * sinf(-i));// -cosf(dT * (3.14156 / 180)) * 0.1f;
-				float scalar =  -.0986f;
+				float scalar = -.0986f;
 				//dir.x = dT;
 				//dir.y = dir.x * scalar;
-				Particle nP = particles[em->parti_indices[i]];
+				Particle nP = particles[emitters[em_index].parti_indices[i]];
 				nP.prev_pos = nP.pos;
 				nP.pos = nP.pos + (dir * scalar);
 				nP.color = (nColor);
 				nP.color.w = 1.0f;
 				nP.life += dT;
-				particles[em->parti_indices[i]] = nP;
-				end::float4 p = { particles[em->parti_indices[i]].prev_pos.x, particles[em->parti_indices[i]].prev_pos.y, particles[em->parti_indices[i]].prev_pos.z, 1.0f };
-				end::float4 q = { particles[em->parti_indices[i]].pos.x, particles[em->parti_indices[i]].pos.y, particles[em->parti_indices[i]].pos.z, 1.0f };
-				debug_renderer::add_line(p, q, particles[em->parti_indices[i]].color);
+				particles[emitters[em_index].parti_indices[i]] = nP;
+				end::float4 p = { particles[emitters[em_index].parti_indices[i]].prev_pos.x,
+								particles[emitters[em_index].parti_indices[i]].prev_pos.y,
+								particles[emitters[em_index].parti_indices[i]].prev_pos.z, 1.0f };
+				end::float4 q = { particles[emitters[em_index].parti_indices[i]].pos.x,
+								particles[emitters[em_index].parti_indices[i]].pos.y,
+								particles[emitters[em_index].parti_indices[i]].pos.z, 1.0f };
+				debug_renderer::add_line(p, q, particles[emitters[em_index].parti_indices[i]].color);
 			}
 		}
 
