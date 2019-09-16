@@ -108,7 +108,7 @@ namespace end
 
 			/////////////////// PARTICLE CREATION ///////////////////
 			create_emitters(W_ORIGIN, WHITE);
-			create_particles(emitters, NUM_OF_EMITTERS, W_ORIGIN, WHITE);
+			create_particles(emitters, NUM_OF_EMITTERS, W_UP, WHITE);
 			/////////////////////////////////////////////////////////
 			timer.Restart();
 		}
@@ -150,7 +150,7 @@ namespace end
 			context->UpdateSubresource(constant_buffer[CONSTANT_BUFFER::MVP], 0, NULL, &mvp, 0, 0);
 
 			// The Cube
-			///context->Draw(36, 0);
+			//context->Draw(36, 0);
 
 			// Draw Debug Line Stuff //
 			draw_debug_grid(view);
@@ -162,7 +162,7 @@ namespace end
 			update_particles(&emitters[1], deltaT, { 0.0f,1.0f,0.0f,1.0f });
 			update_particles(&emitters[2], deltaT, { 0.0f,0.0f,1.0f,1.0f });
 			draw_debug_lines(view);
-			create_particles(emitters, NUM_OF_EMITTERS, { 1.0f,1.0f,1.0f }, WHITE);
+			create_particles(emitters, NUM_OF_EMITTERS, { 0.0f,1.0f,0.0f }, WHITE);
 			//////////////
 
 			swapchain->Present(1u, 0u);
@@ -254,10 +254,10 @@ namespace end
 
 		void create_particles(Emitter* em, int numOfEm, end::float3 pos, end::float4 color)
 		{
-			int lastUsedPtcle = 0;
+			
 			for (int i = 0; i < numOfEm; i++)
 			{
-				for (; lastUsedPtcle < (numOfParticles / numOfEm) * i + 1; lastUsedPtcle++)
+				for (int lastUsedPtcle = 0; lastUsedPtcle < (numOfParticles / numOfEm); lastUsedPtcle++)
 				{
 					Particle p;
 					p.prev_pos = pos;
@@ -292,9 +292,10 @@ namespace end
 			{
 				float s_dT = sepTimer.Delta();
 
-				if (particles[em->parti_indices[i]].life > 3.0f)
+				if (particles[em->parti_indices[i]].life > 2.0f)
 				{
 					kill_particle(em, i);
+					i--;
 					return;
 				}
 
@@ -312,7 +313,7 @@ namespace end
 					if (rng % 2 == 0)
 						dir.y = sinf(rand()) * 0.10f;
 					else
-						dir.y = sinf(rand()) * 0.10f;
+						dir.y = sinf(rand()) * -0.10f;
 
 					rng = rand();
 					if (rng % 2 == 0)
@@ -321,10 +322,10 @@ namespace end
 						dir.z = cosf(rand()) * -1.0f;
 				}
 				// fountain math
-				dir.x = 0.01f;
-				dir.y = sinf(dT);
-				dir.z = 0;
-				float scalar = -9.86f;
+				dir.x = (cosf(i * i) * sinf(-i));// cosf(dT * (3.14156 / 180)) * 0.1f;
+				dir.y = tanf(i) * sinf(dir.x * dir.x);
+				dir.z = (sinf(i * i) * sinf(-i));// -cosf(dT * (3.14156 / 180)) * 0.1f;
+				float scalar =  -.0986f;
 				//dir.x = dT;
 				//dir.y = dir.x * scalar;
 				Particle nP = particles[em->parti_indices[i]];
@@ -332,7 +333,7 @@ namespace end
 				nP.pos = nP.pos + (dir * scalar);
 				nP.color = (nColor);
 				nP.color.w = 1.0f;
-				nP.life += sinf(dT) * 0.1f;
+				nP.life += dT;
 				particles[em->parti_indices[i]] = nP;
 				end::float4 p = { particles[em->parti_indices[i]].prev_pos.x, particles[em->parti_indices[i]].prev_pos.y, particles[em->parti_indices[i]].prev_pos.z, 1.0f };
 				end::float4 q = { particles[em->parti_indices[i]].pos.x, particles[em->parti_indices[i]].pos.y, particles[em->parti_indices[i]].pos.z, 1.0f };

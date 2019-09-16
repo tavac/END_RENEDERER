@@ -2,10 +2,15 @@
 E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(122,17): warning C4244:  'initializing': conversion from 'double' to 'float', possible loss of data
 E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(290,1): warning C4267:  'initializing': conversion from 'size_t' to 'int', possible loss of data
 E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(293,16): warning C4244:  'initializing': conversion from 'double' to 'float', possible loss of data
-E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(307,24): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
-E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(309,24): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
-E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(313,24): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
-E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(315,24): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
-E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(319,24): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
-E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(321,24): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
+E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(308,24): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
+E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(310,24): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
+E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(314,24): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
+E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(316,24): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
+E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(320,24): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
+E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(322,24): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
+E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(325,21): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
+E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(325,33): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
+E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(326,18): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
+E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(327,21): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
+E:\C++\END_RENEDERER\Renderer\d3d11_renderer_impl.h(327,33): warning C4244:  'argument': conversion from 'int' to 'float', possible loss of data
   Renderer.vcxproj -> E:\C++\END_RENEDERER\x64\Debug\Renderer.exe
