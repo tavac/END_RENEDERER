@@ -3,6 +3,15 @@
 #include <array>
 #include <cstdint>
 
+// DIRECT X STUFF
+#include <dxgi1_2.h>
+#include <d3d11_2.h>
+#include <DirectXMath.h>
+
+#pragma comment(lib, "d2d1.lib")
+#pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "DXGI.lib")
+
 namespace end
 {
 	struct float2

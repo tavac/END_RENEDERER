@@ -36,6 +36,38 @@ namespace end
 			}
 		}
 
+		void add_line(XMVECTOR point_a, XMVECTOR point_b, XMVECTOR color_a, XMVECTOR color_b)
+		{
+			// Add points to debug_verts, increments debug_vert_count
+			if (line_vert_count < MAX_LINE_VERTS)
+			{
+				// FROM POINT A
+				line_verts[line_vert_count].pos.x = point_a.m128_f32[0];
+				line_verts[line_vert_count].pos.y = point_a.m128_f32[1];
+				line_verts[line_vert_count].pos.z = point_a.m128_f32[2];
+				line_verts[line_vert_count].pos.w = point_a.m128_f32[3];
+
+				line_verts[line_vert_count].color.x = color_a.m128_f32[0];
+				line_verts[line_vert_count].color.y = color_a.m128_f32[1];
+				line_verts[line_vert_count].color.z = color_a.m128_f32[2];
+				line_verts[line_vert_count].color.w = color_a.m128_f32[3];
+
+				line_vert_count++;
+
+				// TO POINT B
+				line_verts[line_vert_count].pos.x = point_b.m128_f32[0];
+				line_verts[line_vert_count].pos.y = point_b.m128_f32[1];
+				line_verts[line_vert_count].pos.z = point_b.m128_f32[2];
+				line_verts[line_vert_count].pos.w = point_b.m128_f32[3];
+
+				line_verts[line_vert_count].color.x = color_b.m128_f32[0];
+				line_verts[line_vert_count].color.y = color_b.m128_f32[1];
+				line_verts[line_vert_count].color.z = color_b.m128_f32[2];
+				line_verts[line_vert_count].color.w = color_b.m128_f32[3];
+				line_vert_count++;
+			}
+		}
+
 		void clear_lines()
 		{
 			line_vert_count = 0;

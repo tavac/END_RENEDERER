@@ -2,13 +2,6 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-#include <dxgi1_2.h>
-#include <d3d11_2.h>
-#include <DirectXMath.h>
-
-#pragma comment(lib, "d2d1.lib")
-#pragma comment(lib, "d3d11.lib")
-#pragma comment(lib, "DXGI.lib")
 
 #include "renderer.h"
 #include "view.h"
@@ -16,6 +9,9 @@
 #include "../Renderer/shaders/mvp.hlsli"
 
 // NOTE: This header file must *ONLY* be included by renderer.cpp
+
+#define RENDER_PARTICLES 0
+#define LOOK_AT 1
 
 namespace
 {
@@ -26,11 +22,85 @@ namespace
 			t->Release();
 	}
 }
-
+ 
 
 namespace end
 {
 	using namespace DirectX;
+
+	struct Axis_Vectors
+	{
+		XMVECTOR x = { 1.0f,0.0f,0.0f, 1.0f };
+		XMVECTOR y = { 0.0f,1.0f,0.0f, 1.0f };
+		XMVECTOR z = { 0.0f,0.0f,1.0f, 1.0f };
+	};
+
+	void matrix_controller(XMMATRIX& mtx, float dT, bool stabalize = false)
+	{
+		dT *= 10.f;
+#pragma region MOVEMENT
+		if (GetAsyncKeyState('W'))
+		{
+			mtx = XMMatrixMultiply(XMMatrixTranslation(0.0f, 0.0f, dT), mtx);
+		}
+		if (GetAsyncKeyState('S'))
+		{
+			mtx = XMMatrixMultiply(XMMatrixTranslation(0.0f, 0.0f, -dT), mtx);
+		}
+		if (GetAsyncKeyState('D'))
+		{
+			mtx = XMMatrixMultiply(XMMatrixTranslation(dT, 0.0f, 0.0f), mtx);
+		}
+		if (GetAsyncKeyState('A'))
+		{
+			mtx = XMMatrixMultiply(XMMatrixTranslation(-dT, 0.0f, 0.0f), mtx);
+		}
+#pragma endregion
+
+#pragma region ROTATION
+		dT *= 0.1f;
+		if (GetAsyncKeyState(VK_LEFT))
+		{
+			mtx = XMMatrixMultiply(XMMatrixRotationY(-dT),mtx);
+		}
+		if (GetAsyncKeyState(VK_RIGHT))
+		{
+			mtx = XMMatrixMultiply(XMMatrixRotationY(dT), mtx);
+		}
+		if (GetAsyncKeyState(VK_UP))
+		{
+			mtx = XMMatrixMultiply(XMMatrixRotationX(-dT), mtx);
+		}
+		if (GetAsyncKeyState(VK_DOWN))
+		{
+			mtx = XMMatrixMultiply(XMMatrixRotationX(dT), mtx);
+		}
+#pragma endregion
+
+#pragma region CALIBRATION
+		if (stabalize)
+		{
+			// Take Z vector from mtx
+			// nX = cross(wY,Z)
+			// nY = cross(Z,X)
+			// mtx[0] = nX
+			// mtx[1] = nY
+			// mtx[2] = mtx[2]
+			// mtx[3] = mtx[3]
+		}
+#pragma endregion
+	}
+
+	void draw_axi(XMMATRIX mtx)
+	{
+		Axis_Vectors av;
+		av.x = XMVector4Transform(av.x, mtx);
+		av.y = XMVector4Transform(av.y, mtx);
+		av.z = XMVector4Transform(av.z, mtx);
+		end::debug_renderer::add_line(mtx.r[3], av.x, RED, RED);
+		end::debug_renderer::add_line(mtx.r[3], av.y, GREEN, GREEN);
+		end::debug_renderer::add_line(mtx.r[3], av.z, BLUE, BLUE);
+	}
 
 	struct renderer_t::impl_t
 	{
@@ -72,12 +142,17 @@ namespace end
 
 		ID3D11Buffer* debugline_constBuff[CONSTANT_BUFFER::COUNT]{};
 
+#if RENDER_PARTICLES
 		///////////// PARTICLES /////////////////////
 		Emitter emitters[NUM_OF_EMITTERS];
 		pool_t<Particle, numOfParticles> particles;
 		/////////////////////////////////////////////
-		XTime timer;
+#endif
 
+#if LOOK_AT
+		XMMATRIX m_1 = XMMatrixIdentity();
+#endif
+		XTime timer;
 
 		// Constructor for renderer implementation
 		// 
@@ -106,17 +181,17 @@ namespace end
 			default_view.view_mat = (float4x4_a&)XMMatrixInverse(nullptr, XMMatrixLookAtLH(eyepos, focus, up));
 			default_view.proj_mat = (float4x4_a&)XMMatrixPerspectiveFovLH(3.1415926f / 4.0f, aspect, 0.01f, 100.0f);
 
+#if RENDER_PARTICLES
 			/////////////////// PARTICLE CREATION ///////////////////
 			create_emitters(0, W_ORIGIN, WHITE);
 			create_emitters(1, { 10,0,0 }, WHITE);
 			create_emitters(2, { -10,0,0 }, WHITE);
-			create_particles(NUM_OF_EMITTERS,0, W_UP, WHITE);
+			create_particles(NUM_OF_EMITTERS, 0, W_UP, WHITE);
 			/////////////////////////////////////////////////////////
+#endif
 			timer.Restart();
 		}
 
-		float fake_timer = 0.0f;
-		bool goingDown = false;
 		void draw_view(view_t& view)
 		{
 			// TIMER Update //
@@ -132,6 +207,9 @@ namespace end
 
 			context->ClearRenderTargetView(render_target[VIEW_RENDER_TARGET::DEFAULT], black.data());
 			context->ClearDepthStencilView(depthStencilView[VIEW_DEPTH_STENCIL::DEFAULT], D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+			// CLEARING DEBUG LINES // 
+			end::debug_renderer::clear_lines();
+			//////////////////////////
 
 			context->RSSetState(rasterState[STATE_RASTERIZER::DEFAULT]);
 			context->RSSetViewports(1, &view_port[VIEWPORT::DEFAULT]);
@@ -158,21 +236,27 @@ namespace end
 			draw_debug_grid(view);
 			///////////////////////////
 
-
-			// Particles //
+#if RENDER_PARTICLES
+			//////////////////// Particles ////////////////////
 			create_particles(NUM_OF_EMITTERS, 0, W_UP, WHITE);
 			update_particles(0, deltaT, { 1.0f,0.0f,0.0f,1.0f });
-			
+
 			create_particles(NUM_OF_EMITTERS, 1, W_UP, WHITE);
 			update_particles(1, deltaT, { 0.0f,1.0f,0.0f,1.0f });
-			
+
 			create_particles(NUM_OF_EMITTERS, 2, W_UP, WHITE);
 			update_particles(2, deltaT, { 0.0f,0.0f,1.0f,1.0f });
 			draw_debug_lines(view);
-			//////////////
+			//////////////////////////////////////////////////
+#endif
 
+#if LOOK_AT
+			
+			matrix_controller(m_1,deltaT,true);
+			draw_axi(m_1);
+			draw_debug_lines(view);
+#endif
 			swapchain->Present(1u, 0u);
-			end::debug_renderer::clear_lines();
 		}
 
 		void draw_debug_grid(view_t& view)
@@ -246,7 +330,7 @@ namespace end
 
 			context->Draw((UINT)end::debug_renderer::get_line_vert_count(), 0u);
 		}
-
+#if RENDER_PARTICLES
 		void create_emitters(int8_t emitter_index, end::float3 pos, end::float4 color)
 		{
 
@@ -364,12 +448,15 @@ namespace end
 			// free indice
 			em->parti_indices.free(index);
 		}
+#endif
 
 		~impl_t()
 		{
 			// TODO:
 			//Clean-up
+#if RENDER_PARTICLES
 			clear_particles(&emitters[0]);
+#endif
 			//
 			// In general, release objects in reverse order of creation
 			for (auto& ptr : constant_buffer)
@@ -638,4 +725,5 @@ namespace end
 
 		}
 	};
+
 };
