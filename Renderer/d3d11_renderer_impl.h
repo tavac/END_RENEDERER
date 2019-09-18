@@ -10,8 +10,8 @@
 
 // NOTE: This header file must *ONLY* be included by renderer.cpp
 
-#define RENDER_PARTICLES 0
-#define LOOK_AT 1
+#define RENDER_PARTICLES 1
+#define LOOK_AT 0
 
 namespace
 {
@@ -145,7 +145,7 @@ namespace end
 #if RENDER_PARTICLES
 		///////////// PARTICLES /////////////////////
 		Emitter emitters[NUM_OF_EMITTERS];
-		pool_t<Particle, numOfParticles> particles;
+		pool_t<Particle, numOfParticles*3> particles;
 		/////////////////////////////////////////////
 #endif
 
@@ -186,7 +186,7 @@ namespace end
 			create_emitters(0, W_ORIGIN, WHITE);
 			create_emitters(1, { 10,0,0 }, WHITE);
 			create_emitters(2, { -10,0,0 }, WHITE);
-			create_particles(NUM_OF_EMITTERS, 0, W_UP, WHITE);
+			create_particles(/*NUM_OF_EMITTERS, 0,*/ W_UP, WHITE);
 			/////////////////////////////////////////////////////////
 #endif
 			timer.Restart();
@@ -238,13 +238,13 @@ namespace end
 
 #if RENDER_PARTICLES
 			//////////////////// Particles ////////////////////
-			create_particles(NUM_OF_EMITTERS, 0, W_UP, WHITE);
+			create_particles(/*NUM_OF_EMITTERS, 0,*/ W_UP, WHITE);
 			update_particles(0, deltaT, { 1.0f,0.0f,0.0f,1.0f });
 
-			create_particles(NUM_OF_EMITTERS, 1, W_UP, WHITE);
+			//create_particles(/*NUM_OF_EMITTERS, 1,*/ W_UP, WHITE);
 			update_particles(1, deltaT, { 0.0f,1.0f,0.0f,1.0f });
 
-			create_particles(NUM_OF_EMITTERS, 2, W_UP, WHITE);
+			//create_particles(/*NUM_OF_EMITTERS, 2,*/ W_UP, WHITE);
 			update_particles(2, deltaT, { 0.0f,0.0f,1.0f,1.0f });
 			draw_debug_lines(view);
 			//////////////////////////////////////////////////
@@ -340,12 +340,13 @@ namespace end
 			emitters[emitter_index] = emitter;
 		}
 
-		void create_particles(int numOfEm, int start_em, end::float3 pos, end::float4 color)
+		void create_particles(/*int numOfEm, int start_em,*/ end::float3 pos, end::float4 color)
 		{
-			int currPrtcle = 0;
-			for (int i = start_em; i < numOfEm; i++)
+			//int currPrtcle = 0;
+			for (int i = 0; i < NUM_OF_EMITTERS; i++)
 			{
-				for (; currPrtcle < (numOfParticles / numOfEm) * (i + 1); currPrtcle++)
+				//for (; currPrtcle < (numOfParticles / NUM_OF_EMITTERS) * (i + 1); currPrtcle++)
+				for (int currPrtcle = 0; currPrtcle < 1; currPrtcle++)
 				{
 					Particle p;
 					p.prev_pos = emitters[i].origin;
@@ -356,17 +357,22 @@ namespace end
 					if (p_index < 0)
 						return; // No more particles
 					else
-						particles[p_index] = p;
-
-					// Check Emitter for free spot
-					int e_index = emitters[i].parti_indices.alloc();
-					if (e_index < 0)
 					{
-						particles.free(p_index); // Emitter had no empty spot for this particle so put it back.
-						break; // try next emitter
+						// Check Emitter for free spot
+						int e_index = emitters[i].parti_indices.alloc();
+						if (e_index < 0)
+						{
+							particles.free(p_index); // Emitter had no empty spot for this particle so put it back.
+							break; // try next emitter
+						}
+						else
+						{
+							emitters[i].parti_indices[e_index] = p_index;
+							particles[p_index] = p;
+						}
 					}
-					else
-						emitters[i].parti_indices[e_index] = p_index;
+
+					
 				}
 			}
 		}
