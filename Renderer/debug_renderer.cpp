@@ -20,6 +20,29 @@ namespace end
 {
 	namespace debug_renderer
 	{
+		void end::debug_renderer::add_line(float3 point_a, float3 point_b, float4 color_a, float4 color_b)
+		{
+			// Add points to debug_verts, increments debug_vert_count
+			if (line_vert_count < MAX_LINE_VERTS)
+			{
+				
+				//line_verts[line_vert_count] = { (point_a, point_b), (color_a,color_b) };
+				line_verts[line_vert_count].pos.x = point_a.x;
+				line_verts[line_vert_count].pos.y = point_a.y;
+				line_verts[line_vert_count].pos.z = point_a.z;
+				line_verts[line_vert_count].pos.w = 1.0f;
+				line_verts[line_vert_count].color = color_a;
+				line_vert_count++;
+
+				line_verts[line_vert_count].pos.x = point_b.x;
+				line_verts[line_vert_count].pos.y = point_b.y;
+				line_verts[line_vert_count].pos.z = point_b.z;
+				line_verts[line_vert_count].pos.w = 1.0f;
+				line_verts[line_vert_count].color = color_b;
+				line_vert_count++;
+			}
+		}
+
 		void add_line(float4 point_a, float4 point_b, float4 color_a, float4 color_b)
 		{
 			// Add points to debug_verts, increments debug_vert_count

@@ -10,8 +10,10 @@
 
 // NOTE: This header file must *ONLY* be included by renderer.cpp
 
-#define RENDER_PARTICLES 1
-#define LOOK_AT 0
+#define FREE_POOL_TEST 0
+#define SORTED_POOL_TEST 0
+#define RENDER_PARTICLES 0
+#define LOOK_AT 1
 
 namespace
 {
@@ -22,7 +24,6 @@ namespace
 			t->Release();
 	}
 }
- 
 
 namespace end
 {
@@ -35,7 +36,51 @@ namespace end
 		XMVECTOR z = { 0.0f,0.0f,1.0f, 1.0f };
 	};
 
-	void matrix_controller(XMMATRIX& mtx, float dT, bool stabalize = false)
+	void mtx_stabilize(XMMATRIX& mtx)
+	{
+		// Take Z vector from mtx
+		XMVECTOR Z = mtx.r[2];
+		Z = XMVector3Normalize(Z);
+
+		XMVECTOR nX = XMVector3Cross(W_UP, Z);
+		nX = XMVector3Normalize(nX);
+
+		XMVECTOR nY = XMVector3Cross(Z, nX);
+		nY = XMVector3Normalize(nY);
+
+		mtx.r[0] = nX;
+		mtx.r[1] = nY;
+		mtx.r[2] = Z;
+	}
+
+	void look_at(XMMATRIX& mtx, XMMATRIX& tgt)
+	{
+		XMVECTOR nZ = tgt.r[3] - mtx.r[3]; // Vector From Target to "View"
+		mtx.r[2] = XMVector3Normalize(nZ);
+		mtx_stabilize(mtx);
+	}
+
+	void turn_to(XMMATRIX& mtx, XMMATRIX& tgt)
+	{
+		XMVECTOR nZ = tgt.r[3] - mtx.r[3]; // Vector From Target to "View"
+
+		XMVECTOR HowMuchThisWayIsThatThingGoing = XMVector3Dot(XMVector3Normalize(nZ),mtx.r[0]);
+
+		float degree = HowMuchThisWayIsThatThingGoing.m128_f32[0] * (3.14156f / 180.0f);
+
+		XMMATRIX rotationY = XMMatrixRotationAxis(mtx.r[1], degree);
+		mtx = XMMatrixMultiply(rotationY,mtx);
+
+		HowMuchThisWayIsThatThingGoing = XMVector3Dot(XMVector3Normalize(nZ), -mtx.r[1]);
+
+		degree = HowMuchThisWayIsThatThingGoing.m128_f32[0] * (3.14156f / 180.0f);
+
+		XMMATRIX rotationX = XMMatrixRotationAxis(XMVector3Normalize(mtx.r[0]), degree);
+		mtx = XMMatrixMultiply(rotationX, mtx);
+		mtx_stabilize(mtx);
+	}
+
+	void matrix_controller_wasd(XMMATRIX& mtx, float dT, bool stabilize = false)
 	{
 		dT *= 10.f;
 #pragma region MOVEMENT
@@ -61,7 +106,7 @@ namespace end
 		dT *= 0.1f;
 		if (GetAsyncKeyState(VK_LEFT))
 		{
-			mtx = XMMatrixMultiply(XMMatrixRotationY(-dT),mtx);
+			mtx = XMMatrixMultiply(XMMatrixRotationY(-dT), mtx);
 		}
 		if (GetAsyncKeyState(VK_RIGHT))
 		{
@@ -78,16 +123,56 @@ namespace end
 #pragma endregion
 
 #pragma region CALIBRATION
-		if (stabalize)
+		if (stabilize)
+			mtx_stabilize(mtx);
+#pragma endregion
+	}
+
+	void matrix_controller_ijkl(XMMATRIX& mtx, float dT, bool stabilize = false)
+	{
+		dT *= 10.f;
+#pragma region MOVEMENT
+		if (GetAsyncKeyState('I'))
 		{
-			// Take Z vector from mtx
-			// nX = cross(wY,Z)
-			// nY = cross(Z,X)
-			// mtx[0] = nX
-			// mtx[1] = nY
-			// mtx[2] = mtx[2]
-			// mtx[3] = mtx[3]
+			mtx = XMMatrixMultiply(XMMatrixTranslation(0.0f, 0.0f, dT), mtx);
 		}
+		if (GetAsyncKeyState('K'))
+		{
+			mtx = XMMatrixMultiply(XMMatrixTranslation(0.0f, 0.0f, -dT), mtx);
+		}
+		if (GetAsyncKeyState('L'))
+		{
+			mtx = XMMatrixMultiply(XMMatrixTranslation(dT, 0.0f, 0.0f), mtx);
+		}
+		if (GetAsyncKeyState('J'))
+		{
+			mtx = XMMatrixMultiply(XMMatrixTranslation(-dT, 0.0f, 0.0f), mtx);
+		}
+#pragma endregion
+
+#pragma region ROTATION
+		dT *= 0.1f;
+		if (GetAsyncKeyState(VK_NUMPAD4))
+		{
+			mtx = XMMatrixMultiply(XMMatrixRotationY(-dT), mtx);
+		}
+		if (GetAsyncKeyState(VK_NUMPAD6))
+		{
+			mtx = XMMatrixMultiply(XMMatrixRotationY(dT), mtx);
+		}
+		if (GetAsyncKeyState(VK_NUMPAD8))
+		{
+			mtx = XMMatrixMultiply(XMMatrixRotationX(-dT), mtx);
+		}
+		if (GetAsyncKeyState(VK_NUMPAD2))
+		{
+			mtx = XMMatrixMultiply(XMMatrixRotationX(dT), mtx);
+		}
+#pragma endregion
+
+#pragma region CALIBRATION
+		if (stabilize)
+			mtx_stabilize(mtx);
 #pragma endregion
 	}
 
@@ -142,15 +227,24 @@ namespace end
 
 		ID3D11Buffer* debugline_constBuff[CONSTANT_BUFFER::COUNT]{};
 
+#if FREE_POOL_TEST
+		pool_t<Particle, 100> fp_test;
+#endif
+
+#if SORTED_POOL_TEST
+		sorted_pool_t<Particle, 100> sp_test;
+#endif
+
 #if RENDER_PARTICLES
 		///////////// PARTICLES /////////////////////
 		Emitter emitters[NUM_OF_EMITTERS];
-		pool_t<Particle, numOfParticles*3> particles;
+		pool_t<Particle, numOfParticles * 3> particles;
 		/////////////////////////////////////////////
 #endif
 
 #if LOOK_AT
 		XMMATRIX m_1 = XMMatrixIdentity();
+		XMMATRIX m_2 = XMMatrixIdentity();
 #endif
 		XTime timer;
 
@@ -191,7 +285,7 @@ namespace end
 #endif
 			timer.Restart();
 		}
-
+		bool LookAt = false;
 		void draw_view(view_t& view)
 		{
 			// TIMER Update //
@@ -236,6 +330,20 @@ namespace end
 			draw_debug_grid(view);
 			///////////////////////////
 
+#if FREE_POOL_TEST
+			end::debug_renderer::clear_lines();
+			f_create_test_particles();
+			f_update_test_particles(deltaT);
+			draw_debug_lines(view);
+#endif
+
+#if SORTED_POOL_TEST
+			end::debug_renderer::clear_lines();
+			create_test_particles();
+			update_test_particles(deltaT);
+			draw_debug_lines(view);
+#endif
+
 #if RENDER_PARTICLES
 			//////////////////// Particles ////////////////////
 			create_particles(/*NUM_OF_EMITTERS, 0,*/ W_UP, WHITE);
@@ -251,9 +359,24 @@ namespace end
 #endif
 
 #if LOOK_AT
-			
-			matrix_controller(m_1,deltaT,true);
+			//POINT prev, curr;
+			//GetCursorPos(&prev);
+			//GetCursorPos(&curr);
+			//prev.x;
+			matrix_controller_wasd(m_1, deltaT, false);
+			matrix_controller_ijkl(m_2, deltaT, true);
+
+			if (GetAsyncKeyState('1'))
+				LookAt = true;
+			if (GetAsyncKeyState('2'))
+				LookAt = false;
+			if (LookAt)
+				turn_to(m_1, m_2);
+				//else
+				//look_at(m_1, m_2);
+
 			draw_axi(m_1);
+			draw_axi(m_2);
 			draw_debug_lines(view);
 #endif
 			swapchain->Present(1u, 0u);
@@ -330,6 +453,87 @@ namespace end
 
 			context->Draw((UINT)end::debug_renderer::get_line_vert_count(), 0u);
 		}
+
+#if FREE_POOL_TEST
+		void f_create_test_particles()
+		{
+			int rtn = 0;
+			do
+			{
+				rtn = fp_test.alloc();
+				if (0 <= rtn)
+				{
+					Particle p;
+					p.color = RED;
+					p.life = 0;
+					p.pos = W_UP;
+					p.prev_pos = W_ORIGIN;
+					fp_test[rtn] = p;
+				}
+			} while (-1 < rtn);
+		}
+
+		void f_update_test_particles(float dt)
+		{
+			for (int i = 0; i < 100; i++)
+			{
+				fp_test[i].life += dt;
+				if (fp_test[i].life >= 2.0f)
+				{
+					fp_test.free(i);
+					continue;
+				}
+				fp_test[i].prev_pos = fp_test[i].pos;
+				fp_test[i].pos.x += sinf(dt) * sinf(i);
+				fp_test[i].pos.y += 0.001f * i;
+				fp_test[i].pos.z += sinf(i * 0.01f);
+
+				end::debug_renderer::add_line(fp_test[i].prev_pos, fp_test[i].pos, fp_test[i].color, fp_test[i].color);
+			}
+		}
+#endif
+
+#if SORTED_POOL_TEST
+		void create_test_particles()
+		{
+			int rtn = 0;
+			for (int i = 0; i < 1; i++)
+			{
+				rtn = sp_test.alloc();
+				if (0 <= rtn)
+				{
+					Particle p;
+					p.color = BLUE;
+					p.life = 0;
+					p.pos = W_UP;
+					p.prev_pos = W_ORIGIN;
+					sp_test[rtn] = p;
+				}
+				else
+					return;
+			}
+		}
+
+		void update_test_particles(float dt)
+		{
+			for (int i = 0; i < sp_test.size(); i++)
+			{
+				sp_test[i].life += dt;
+				if (sp_test[i].life >= 2.0f)
+				{
+					sp_test.free(i);
+					continue;
+				}
+				sp_test[i].prev_pos = sp_test[i].pos;
+				sp_test[i].pos.x += sinf(dt) * sinf(i);
+				sp_test[i].pos.y += 0.001f * i;
+				sp_test[i].pos.z += sinf(i * 0.01f);
+
+				end::debug_renderer::add_line(sp_test[i].prev_pos, sp_test[i].pos, sp_test[i].color, sp_test[i].color);
+			}
+		}
+#endif
+
 #if RENDER_PARTICLES
 		void create_emitters(int8_t emitter_index, end::float3 pos, end::float4 color)
 		{
@@ -371,8 +575,6 @@ namespace end
 							particles[p_index] = p;
 						}
 					}
-
-					
 				}
 			}
 		}
@@ -387,35 +589,15 @@ namespace end
 				{
 					kill_particle(&emitters[em_index], i);
 					i--;
-					return;
+					continue;
 				}
 
 
 				end::float3 dir;
-				for (int n = 0; n < 0; n++) // ZEROED to skip over
-				{
-					int rng = rand();
-					if (rng % 2 == 0)
-						dir.x = cosf(rand()) * 1.0f;
-					else
-						dir.x = cosf(rand()) * -1.0f;
-
-					rng = rand();
-					if (rng % 2 == 0)
-						dir.y = sinf(rand()) * 0.10f;
-					else
-						dir.y = sinf(rand()) * -0.10f;
-
-					rng = rand();
-					if (rng % 2 == 0)
-						dir.z = cosf(rand()) * 1.0f;
-					else
-						dir.z = cosf(rand()) * -1.0f;
-				}
 				// fountain math
-				dir.x = (cosf(i * i) * sinf(-i));// cosf(dT * (3.14156 / 180)) * 0.1f;
-				dir.y = tanf(i) * sinf(dir.x * dir.x);
-				dir.z = (sinf(i * i) * sinf(-i));// -cosf(dT * (3.14156 / 180)) * 0.1f;
+				dir.x = (cosf(dT * i) * sinf(-i));// cosf(dT * (3.14156 / 180)) * 0.1f;
+				dir.y = 0.001f;
+				dir.z = (sinf(dT * i) * sinf(-i));// -cosf(dT * (3.14156 / 180)) * 0.1f;
 				float scalar = -.0986f;
 				//dir.x = dT;
 				//dir.y = dir.x * scalar;
