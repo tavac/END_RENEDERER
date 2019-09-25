@@ -55,6 +55,13 @@ namespace end
 		mtx.r[1] = nY;
 		mtx.r[2] = Z;
 	}
+
+	struct Plane
+	{
+		XMVECTOR normal;
+		float offset;
+	};
+
 #if LOOK_AT
 	void look_at(XMMATRIX& mtx, XMMATRIX& tgt)
 	{
@@ -169,14 +176,15 @@ namespace end
 	}
 
 
-	XMVECTOR calculate_plane(XMVECTOR A, XMVECTOR B, XMVECTOR C)
+	Plane calculate_plane(XMVECTOR A, XMVECTOR B, XMVECTOR C)
 	{
+		Plane rtn;
 		XMVECTOR AB = B - A;
 		XMVECTOR AC = C - A;
-		XMVECTOR norm = XMVector3Normalize(XMVector3Cross(AB, AC));
-		float offset = XMVector3Dot(A, norm).m128_f32[0];
-		norm.m128_f32[3] = offset;
-		return norm;
+		rtn.normal = XMVector3Normalize(XMVector3Cross(AB, AC));
+		rtn.offset = XMVector3Dot(A, rtn.normal).m128_f32[0]; // vectordot returns the dot copied into each axis of the vector
+		//norm.m128_f32[3] = offset;
+		return rtn;
 	}
 
 	void render_frustum_ez(XMMATRIX& mtx, float fov, float viewWidth, float viewHeight, float nearDist, float farDist)
@@ -220,24 +228,26 @@ namespace end
 #pragma endregion
 
 #pragma region Le_Frustum_Planes_&_Normals
-		XMVECTOR Nplane = calculate_plane(NTR, NTL, NBL); // Near
-		XMVECTOR Fplane = calculate_plane(FTR, FTL, FBL); // Far
-		XMVECTOR Tplane = calculate_plane(NTR, NTL, FTL); // Top
-		XMVECTOR Bplane = calculate_plane(FBR, FBL, NBL); // Bottom 
-		XMVECTOR Lplane = calculate_plane(FTL, NTL, NBL); // Left 
-		XMVECTOR Rplane = calculate_plane(FTR, NTR, NBR); // Right
+		/*frustum normals were off because offset was being stored in w
+		 fix: create Plane struct to save normal and offset seperately*/
+		Plane Nplane = calculate_plane(NTR, NTL, NBL); // Near
+		Plane Fplane = calculate_plane(FTL, FTR, FBL); // Far
+		Plane Tplane = calculate_plane(FTL, NTL, FTR); // Top
+		Plane Bplane = calculate_plane(FBL, NBL, FBR); // Bottom
+		Plane Lplane = calculate_plane(NTL, FTL, NBL); // Left
+		Plane Rplane = calculate_plane(FTR, NTR, FBR); // Right
 
 		XMVECTOR LCenter = (NTL + NBL + FTL + FBL) / 4.0f;
 		XMVECTOR RCenter = (NTR + NBR + FTR + FBR) / 4.0f;
 		XMVECTOR TCenter = (NTL + NTR + FTL + FTR) / 4.0f;
 		XMVECTOR BCenter = (NBL + NBR + FBL + FBR) / 4.0f;
 
-		end::debug_renderer::add_line(NCenter, Nplane, { .75f, 0.0f,.5f });
-		//end::debug_renderer::add_line(Fplane, FCenter, { .75f, 0.0f,.5f });
-		//end::debug_renderer::add_line(Lplane, LCenter, { .75f, 0.0f,.5f });
-		//end::debug_renderer::add_line(Rplane, RCenter, { .75f, 0.0f,.5f });
-		//end::debug_renderer::add_line(Tplane, TCenter, { .75f, 0.0f,.5f });
-		//end::debug_renderer::add_line(Bplane, BCenter, { .75f, 0.0f,.5f });
+		end::debug_renderer::add_line(NCenter, Nplane.normal + NCenter, { .75f, 0.0f,.5f }, { 1.0f,1.0f,1.0f });
+		end::debug_renderer::add_line(FCenter, Fplane.normal + FCenter, { .75f, 0.0f,.5f }, { 1.0f,1.0f,1.0f });
+		end::debug_renderer::add_line(LCenter, Lplane.normal + LCenter, { .75f, 0.0f,.5f }, { 1.0f,1.0f,1.0f });
+		end::debug_renderer::add_line(RCenter, Rplane.normal + RCenter, { .75f, 0.0f,.5f }, { 1.0f,1.0f,1.0f });
+		end::debug_renderer::add_line(TCenter, Tplane.normal + TCenter, { .75f, 0.0f,.5f }, { 1.0f,1.0f,1.0f });
+		end::debug_renderer::add_line(BCenter, Bplane.normal + BCenter, { .75f, 0.0f,.5f }, { 1.0f,1.0f,1.0f });
 
 #pragma endregion
 	}
@@ -1110,6 +1120,6 @@ namespace end
 
 
 		}
-	};
+		};
 
-};
+	};
