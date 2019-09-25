@@ -1,3 +1,3 @@
 ﻿  renderer.cpp
-C:\Users\caiot\OneDrive - Full Sail University\Documents\Class Work\Bachelors\EngineDev\RendererZip\1) Renderer\Renderer\d3d11_renderer_impl.h(293,17): warning C4244:  'initializing': conversion from 'double' to 'float', possible loss of data
+C:\Users\caiot\OneDrive - Full Sail University\Documents\Class Work\Bachelors\EngineDev\RendererZip\1) Renderer\Renderer\d3d11_renderer_impl.h(470,17): warning C4244:  'initializing': conversion from 'double' to 'float', possible loss of data
   Renderer.vcxproj -> C:\Users\caiot\OneDrive - Full Sail University\Documents\Class Work\Bachelors\EngineDev\RendererZip\1) Renderer\x64\Debug\Renderer.exe

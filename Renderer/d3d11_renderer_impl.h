@@ -10,10 +10,13 @@
 
 // NOTE: This header file must *ONLY* be included by renderer.cpp
 
-#define FREE_POOL_TEST 0
-#define SORTED_POOL_TEST 0
-#define RENDER_PARTICLES 0
-#define LOOK_AT 1
+#define FREE_POOL_TEST		0
+#define SORTED_POOL_TEST	0
+#define RENDER_PARTICLES	0
+#define LOOK_AT				0
+#define TURN_TO				0
+#define MOUSE_CAM			0
+#define FRUSTUM				1
 
 namespace
 {
@@ -52,24 +55,25 @@ namespace end
 		mtx.r[1] = nY;
 		mtx.r[2] = Z;
 	}
-
+#if LOOK_AT
 	void look_at(XMMATRIX& mtx, XMMATRIX& tgt)
 	{
 		XMVECTOR nZ = tgt.r[3] - mtx.r[3]; // Vector From Target to "View"
 		mtx.r[2] = XMVector3Normalize(nZ);
 		mtx_stabilize(mtx);
 	}
-
+#endif
+#if TURN_TO
 	void turn_to(XMMATRIX& mtx, XMMATRIX& tgt)
 	{
 		XMVECTOR nZ = tgt.r[3] - mtx.r[3]; // Vector From Target to "View"
 
-		XMVECTOR HowMuchThisWayIsThatThingGoing = XMVector3Dot(XMVector3Normalize(nZ),mtx.r[0]);
+		XMVECTOR HowMuchThisWayIsThatThingGoing = XMVector3Dot(XMVector3Normalize(nZ), mtx.r[0]);
 
 		float degree = HowMuchThisWayIsThatThingGoing.m128_f32[0] * (3.14156f / 180.0f);
 
 		XMMATRIX rotationY = XMMatrixRotationAxis(mtx.r[1], degree);
-		mtx = XMMatrixMultiply(rotationY,mtx);
+		mtx = XMMatrixMultiply(rotationY, mtx);
 
 		HowMuchThisWayIsThatThingGoing = XMVector3Dot(XMVector3Normalize(nZ), -mtx.r[1]);
 
@@ -79,7 +83,165 @@ namespace end
 		mtx = XMMatrixMultiply(rotationX, mtx);
 		mtx_stabilize(mtx);
 	}
+#endif
+#if MOUSE_CAM
+	POINT curr_MousePos;
+	void mouse_mtx_rotation(XMMATRIX& cam, POINT& cur_pos, float dT)
+	{
+		POINT new_pos = { 0,0 };
+		int rtn = GetCursorPos(&new_pos);
+		// IN DEBUG THIS WILL BREAK IF GETCURSORPOSITION RETURNS AND ERROR //
+		assert(rtn > 0);
+		DWORD err = GetLastError();
+		//
+		printf("X = %3.3lf , Y = %3.3lf \n", static_cast<float>(new_pos.x), static_cast<float>(new_pos.y));
+		float deltaX = (new_pos.x - cur_pos.x) * dT * 0.05f; // How much left/right
+		float deltaY = (new_pos.y - cur_pos.y) * dT * 0.05f; // How much up/down
+		XMMATRIX yRot = XMMatrixRotationAxis(W_UP, deltaX);
+		XMMATRIX xRot = XMMatrixRotationAxis({ 1,0,0 }, deltaY);
+		cam = XMMatrixMultiply(yRot, cam);
+		cam = XMMatrixMultiply(xRot, cam);
+		mtx_stabilize(cam);
+		cur_pos = new_pos;
+	}
+#endif
+#if FRUSTUM
+	void render_frustum_unproject(XMMATRIX& mtx, float Width, float Height, float near_depth, XMMATRIX proj, XMMATRIX view, XMMATRIX world)
+	{
+		float hW = Width * 0.5f;
+		float hH = Height * 0.5f;
+		// NEAR PLANE
+		XMVECTOR nCenter = XMVectorSet(hW, hH, near_depth, 1.0f);
+		nCenter = XMVector3Unproject(nCenter, mtx.r[3].m128_f32[0], mtx.r[3].m128_f32[1], Width, Height, near_depth, near_depth + 10.0f, proj, view, world);
+		//XMVECTOR NTL = XMVectorSet(nCenter.m128_f32[0] - hW, nCenter.m128_f32[1] + hH, nCenter.m128_f32[2], 1.0f);
+		//XMVECTOR NTR = XMVectorSet(nCenter.m128_f32[0] + hW, nCenter.m128_f32[1] + hH, nCenter.m128_f32[2], 1.0f);
+		//XMVECTOR NBL = XMVectorSet(nCenter.m128_f32[0] - hW, nCenter.m128_f32[1] - hH, nCenter.m128_f32[2], 1.0f);
+		//XMVECTOR NBR = XMVectorSet(nCenter.m128_f32[0] + hW, nCenter.m128_f32[1] - hH, nCenter.m128_f32[2], 1.0f);
 
+		XMVECTOR NTL = XMVectorSet(-1.0f, 1.0f, 0.0f, 1.0f);
+		XMVECTOR NTR = XMVectorSet(1.0f, 1.0f, 0.0f, 1.0f);
+		XMVECTOR NBL = XMVectorSet(-1.0f, -1.0f, 0.0f, 1.0f);
+		XMVECTOR NBR = XMVectorSet(1.0f, -1.0f, 0.0f, 1.0f);
+
+		NTL = XMVector3Unproject(NTL, mtx.r[3].m128_f32[0], mtx.r[3].m128_f32[1], Width, Height, 0, 1.0f, proj, view, world);
+		NTR = XMVector3Unproject(NTR, mtx.r[3].m128_f32[0], mtx.r[3].m128_f32[1], Width, Height, 0, 1.0f, proj, view, world);
+		NBL = XMVector3Unproject(NBL, mtx.r[3].m128_f32[0], mtx.r[3].m128_f32[1], Width, Height, 0, 1.0f, proj, view, world);
+		NBR = XMVector3Unproject(NBR, mtx.r[3].m128_f32[0], mtx.r[3].m128_f32[1], Width, Height, 0, 1.0f, proj, view, world);
+
+		// FAR PLANE
+		XMVECTOR fCenter = XMVectorSet(hW, hH, near_depth + 10.0f, 1.0f);
+		fCenter = XMVector3Unproject(fCenter, mtx.r[3].m128_f32[0], mtx.r[3].m128_f32[1], Width, Height, near_depth, near_depth + 10.0f, proj, view, world);
+		//XMVECTOR FTL = XMVectorSet(fCenter.m128_f32[0] - hW, fCenter.m128_f32[1] + hH, fCenter.m128_f32[2], 1.0f);
+		//XMVECTOR FTR = XMVectorSet(fCenter.m128_f32[0] + hW, fCenter.m128_f32[1] + hH, fCenter.m128_f32[2], 1.0f);
+		//XMVECTOR FBL = XMVectorSet(fCenter.m128_f32[0] - hW, fCenter.m128_f32[1] - hH, fCenter.m128_f32[2], 1.0f);
+		//XMVECTOR FBR = XMVectorSet(fCenter.m128_f32[0] + hW, fCenter.m128_f32[1] - hH, fCenter.m128_f32[2], 1.0f);
+
+		XMVECTOR FTL = XMVectorSet(-1.0f, 1.0f, 1.0f, 1.0f);
+		XMVECTOR FTR = XMVectorSet(1.0f, 1.0f, 1.0f, 1.0f);
+		XMVECTOR FBL = XMVectorSet(-1.0f, -1.0f, 1.0f, 1.0f);
+		XMVECTOR FBR = XMVectorSet(1.0f, -1.0f, 1.0f, 1.0f);
+
+		FTL = XMVector3Unproject(FTL, mtx.r[3].m128_f32[0], mtx.r[3].m128_f32[1], Width, Height, 0, 1.0f, proj, view, world);
+		FTR = XMVector3Unproject(FTR, mtx.r[3].m128_f32[0], mtx.r[3].m128_f32[1], Width, Height, 0, 1.0f, proj, view, world);
+		FBL = XMVector3Unproject(FBL, mtx.r[3].m128_f32[0], mtx.r[3].m128_f32[1], Width, Height, 0, 1.0f, proj, view, world);
+		FBR = XMVector3Unproject(FBR, mtx.r[3].m128_f32[0], mtx.r[3].m128_f32[1], Width, Height, 0, 1.0f, proj, view, world);
+
+		// Near to Far
+		end::debug_renderer::add_line(NTL, FTL, WHITE);
+		end::debug_renderer::add_line(NBL, FBL, WHITE);
+		end::debug_renderer::add_line(NTR, FTR, WHITE);
+		end::debug_renderer::add_line(NBR, FBR, WHITE);
+
+		// Near Plane
+		end::debug_renderer::add_line(NTL, NTR, WHITE);
+		end::debug_renderer::add_line(NTL, NBL, WHITE);
+		end::debug_renderer::add_line(NBR, NTR, WHITE);
+		end::debug_renderer::add_line(NBR, NBL, WHITE);
+
+		// Far Plane
+		end::debug_renderer::add_line(FTL, FTR, WHITE);
+		end::debug_renderer::add_line(FTL, FBL, WHITE);
+		end::debug_renderer::add_line(FBR, FTR, WHITE);
+		end::debug_renderer::add_line(FBR, FBL, WHITE);
+
+
+
+	}
+
+
+	XMVECTOR calculate_plane(XMVECTOR A, XMVECTOR B, XMVECTOR C)
+	{
+		XMVECTOR AB = B - A;
+		XMVECTOR AC = C - A;
+		XMVECTOR norm = XMVector3Normalize(XMVector3Cross(AB, AC));
+		float offset = XMVector3Dot(A, norm).m128_f32[0];
+		norm.m128_f32[3] = offset;
+		return norm;
+	}
+
+	void render_frustum_ez(XMMATRIX& mtx, float fov, float viewWidth, float viewHeight, float nearDist, float farDist)
+	{
+#pragma region Le_Frustum_Points_&_Lines
+		XMVECTOR NCenter = mtx.r[3] + (mtx.r[2] * nearDist);
+		XMVECTOR FCenter = mtx.r[3] + (mtx.r[2] * farDist);
+
+		float nearHeight = 2 * (tan(fov / 2) * nearDist);
+		float farHeight = 2 * (tan(fov / 2) * farDist);
+		float nearWidth = nearHeight * (viewWidth / viewHeight);
+		float farWidth = farHeight * (viewWidth / viewHeight);
+
+		XMVECTOR NTL = NCenter + mtx.r[1] * (nearHeight * 0.5f) - mtx.r[0] * (nearWidth * 0.5f);
+		XMVECTOR NTR = NCenter + mtx.r[1] * (nearHeight * 0.5f) + mtx.r[0] * (nearWidth * 0.5f);
+		XMVECTOR NBL = NCenter - mtx.r[1] * (nearHeight * 0.5f) - mtx.r[0] * (nearWidth * 0.5f);
+		XMVECTOR NBR = NCenter - mtx.r[1] * (nearHeight * 0.5f) + mtx.r[0] * (nearWidth * 0.5f);
+
+		XMVECTOR FTL = FCenter + mtx.r[1] * (farHeight * 0.5f) - mtx.r[0] * (farWidth * 0.5f);
+		XMVECTOR FTR = FCenter + mtx.r[1] * (farHeight * 0.5f) + mtx.r[0] * (farWidth * 0.5f);
+		XMVECTOR FBL = FCenter - mtx.r[1] * (farHeight * 0.5f) - mtx.r[0] * (farWidth * 0.5f);
+		XMVECTOR FBR = FCenter - mtx.r[1] * (farHeight * 0.5f) + mtx.r[0] * (farWidth * 0.5f);
+
+		// Near to Far
+		end::debug_renderer::add_line(NTL, FTL, WHITE);
+		end::debug_renderer::add_line(NBL, FBL, WHITE);
+		end::debug_renderer::add_line(NTR, FTR, WHITE);
+		end::debug_renderer::add_line(NBR, FBR, WHITE);
+
+		// Near Plane
+		end::debug_renderer::add_line(NTL, NTR, WHITE);
+		end::debug_renderer::add_line(NTL, NBL, WHITE);
+		end::debug_renderer::add_line(NBR, NTR, WHITE);
+		end::debug_renderer::add_line(NBR, NBL, WHITE);
+
+		// Far Plane
+		end::debug_renderer::add_line(FTL, FTR, WHITE);
+		end::debug_renderer::add_line(FTL, FBL, WHITE);
+		end::debug_renderer::add_line(FBR, FTR, WHITE);
+		end::debug_renderer::add_line(FBR, FBL, WHITE);
+#pragma endregion
+
+#pragma region Le_Frustum_Planes_&_Normals
+		XMVECTOR Nplane = calculate_plane(NTR, NTL, NBL); // Near
+		XMVECTOR Fplane = calculate_plane(FTR, FTL, FBL); // Far
+		XMVECTOR Tplane = calculate_plane(NTR, NTL, FTL); // Top
+		XMVECTOR Bplane = calculate_plane(FBR, FBL, NBL); // Bottom 
+		XMVECTOR Lplane = calculate_plane(FTL, NTL, NBL); // Left 
+		XMVECTOR Rplane = calculate_plane(FTR, NTR, NBR); // Right
+
+		XMVECTOR LCenter = (NTL + NBL + FTL + FBL) / 4.0f;
+		XMVECTOR RCenter = (NTR + NBR + FTR + FBR) / 4.0f;
+		XMVECTOR TCenter = (NTL + NTR + FTL + FTR) / 4.0f;
+		XMVECTOR BCenter = (NBL + NBR + FBL + FBR) / 4.0f;
+
+		end::debug_renderer::add_line(NCenter, Nplane, { .75f, 0.0f,.5f });
+		//end::debug_renderer::add_line(Fplane, FCenter, { .75f, 0.0f,.5f });
+		//end::debug_renderer::add_line(Lplane, LCenter, { .75f, 0.0f,.5f });
+		//end::debug_renderer::add_line(Rplane, RCenter, { .75f, 0.0f,.5f });
+		//end::debug_renderer::add_line(Tplane, TCenter, { .75f, 0.0f,.5f });
+		//end::debug_renderer::add_line(Bplane, BCenter, { .75f, 0.0f,.5f });
+
+#pragma endregion
+	}
+#endif
 	void matrix_controller_wasd(XMMATRIX& mtx, float dT, bool stabilize = false)
 	{
 		dT *= 10.f;
@@ -104,19 +266,19 @@ namespace end
 
 #pragma region ROTATION
 		dT *= 0.1f;
-		if (GetAsyncKeyState(VK_LEFT))
+		if (GetAsyncKeyState('Q'))
 		{
 			mtx = XMMatrixMultiply(XMMatrixRotationY(-dT), mtx);
 		}
-		if (GetAsyncKeyState(VK_RIGHT))
+		if (GetAsyncKeyState('E'))
 		{
 			mtx = XMMatrixMultiply(XMMatrixRotationY(dT), mtx);
 		}
-		if (GetAsyncKeyState(VK_UP))
+		if (GetAsyncKeyState('R'))
 		{
 			mtx = XMMatrixMultiply(XMMatrixRotationX(-dT), mtx);
 		}
-		if (GetAsyncKeyState(VK_DOWN))
+		if (GetAsyncKeyState('F'))
 		{
 			mtx = XMMatrixMultiply(XMMatrixRotationX(dT), mtx);
 		}
@@ -152,19 +314,19 @@ namespace end
 
 #pragma region ROTATION
 		dT *= 0.1f;
-		if (GetAsyncKeyState(VK_NUMPAD4))
+		if (GetAsyncKeyState('U'))
 		{
 			mtx = XMMatrixMultiply(XMMatrixRotationY(-dT), mtx);
 		}
-		if (GetAsyncKeyState(VK_NUMPAD6))
+		if (GetAsyncKeyState('O'))
 		{
 			mtx = XMMatrixMultiply(XMMatrixRotationY(dT), mtx);
 		}
-		if (GetAsyncKeyState(VK_NUMPAD8))
+		if (GetAsyncKeyState('Y'))
 		{
 			mtx = XMMatrixMultiply(XMMatrixRotationX(-dT), mtx);
 		}
-		if (GetAsyncKeyState(VK_NUMPAD2))
+		if (GetAsyncKeyState('H'))
 		{
 			mtx = XMMatrixMultiply(XMMatrixRotationX(dT), mtx);
 		}
@@ -189,6 +351,7 @@ namespace end
 
 	struct renderer_t::impl_t
 	{
+#pragma region POINTERS
 		// platform/api specific members, functions, etc.
 		// Device, swapchain, resource views, states, etc. can be members here
 		HWND hwnd;
@@ -226,6 +389,7 @@ namespace end
 		*/
 
 		ID3D11Buffer* debugline_constBuff[CONSTANT_BUFFER::COUNT]{};
+#pragma endregion
 
 #if FREE_POOL_TEST
 		pool_t<Particle, 100> fp_test;
@@ -242,9 +406,13 @@ namespace end
 		/////////////////////////////////////////////
 #endif
 
-#if LOOK_AT
+#if LOOK_AT || TURN_TO
 		XMMATRIX m_1 = XMMatrixIdentity();
 		XMMATRIX m_2 = XMMatrixIdentity();
+#endif
+
+#if FRUSTUM
+		XMMATRIX frustcam = XMMatrixIdentity();
 #endif
 		XTime timer;
 
@@ -275,6 +443,14 @@ namespace end
 			default_view.view_mat = (float4x4_a&)XMMatrixInverse(nullptr, XMMatrixLookAtLH(eyepos, focus, up));
 			default_view.proj_mat = (float4x4_a&)XMMatrixPerspectiveFovLH(3.1415926f / 4.0f, aspect, 0.01f, 100.0f);
 
+#if MOUSE_CAM
+			float screenY = static_cast<float>(GetSystemMetrics(SM_CYSCREEN));
+			float screenX = static_cast<float>(GetSystemMetrics(SM_CXSCREEN));
+			XMFLOAT2A centerScreen = { (screenX * 0.5f) ,(screenY * 0.5f) };
+			SetCursorPos(centerScreen.x, centerScreen.y);
+			GetCursorPos(&curr_MousePos);
+#endif
+
 #if RENDER_PARTICLES
 			/////////////////// PARTICLE CREATION ///////////////////
 			create_emitters(0, W_ORIGIN, WHITE);
@@ -285,6 +461,7 @@ namespace end
 #endif
 			timer.Restart();
 		}
+
 		bool LookAt = false;
 		void draw_view(view_t& view)
 		{
@@ -334,14 +511,12 @@ namespace end
 			end::debug_renderer::clear_lines();
 			f_create_test_particles();
 			f_update_test_particles(deltaT);
-			draw_debug_lines(view);
 #endif
 
 #if SORTED_POOL_TEST
 			end::debug_renderer::clear_lines();
 			create_test_particles();
 			update_test_particles(deltaT);
-			draw_debug_lines(view);
 #endif
 
 #if RENDER_PARTICLES
@@ -354,16 +529,26 @@ namespace end
 
 			//create_particles(/*NUM_OF_EMITTERS, 2,*/ W_UP, WHITE);
 			update_particles(2, deltaT, { 0.0f,0.0f,1.0f,1.0f });
-			draw_debug_lines(view);
 			//////////////////////////////////////////////////
 #endif
 
 #if LOOK_AT
-			//POINT prev, curr;
-			//GetCursorPos(&prev);
-			//GetCursorPos(&curr);
-			//prev.x;
-			matrix_controller_wasd(m_1, deltaT, false);
+			matrix_controller_wasd(m_1, deltaT, true);
+			matrix_controller_ijkl(m_2, deltaT, true);
+
+			if (GetAsyncKeyState('1'))
+				LookAt = true;
+			if (GetAsyncKeyState('2'))
+				LookAt = false;
+			if (LookAt)
+				look_at(m_1, m_2);
+
+			draw_axi(m_1);
+			draw_axi(m_2);
+#endif
+
+#if TURN_TO
+			matrix_controller_wasd(m_1, deltaT, true);
 			matrix_controller_ijkl(m_2, deltaT, true);
 
 			if (GetAsyncKeyState('1'))
@@ -372,13 +557,25 @@ namespace end
 				LookAt = false;
 			if (LookAt)
 				turn_to(m_1, m_2);
-				//else
-				//look_at(m_1, m_2);
 
 			draw_axi(m_1);
 			draw_axi(m_2);
-			draw_debug_lines(view);
 #endif
+
+#if MOUSE_CAM
+			if (GetAsyncKeyState(VK_RBUTTON))
+				mouse_mtx_rotation((XMMATRIX&)view.view_mat, curr_MousePos, deltaT);
+			else GetCursorPos(&curr_MousePos);
+#endif
+
+#if FRUSTUM
+			matrix_controller_wasd((XMMATRIX&)view.view_mat, deltaT, true);
+			matrix_controller_ijkl(frustcam, deltaT, true);
+			//XMMATRIX proj = XMMatrixPerspectiveLH(10.0f, 5.0f, 0.1f, 1.0f);
+			//render_frustum_unproject(frustcam, 10.0f, 5.0f, 1.0f, proj, frustcam, XMMatrixIdentity());
+			render_frustum_ez(frustcam, (60.0f * (3.1415f / 180.0f)), 1280, 720, 1.0f, 10.0f);
+#endif
+			draw_debug_lines(view);
 			swapchain->Present(1u, 0u);
 		}
 
@@ -585,9 +782,9 @@ namespace end
 			int size = emitters[em_index].parti_indices.size();
 			for (int i = 0; i < size; i++)
 			{
-				if (particles[emitters[em_index].parti_indices[i]].life > 2.0f)
+				if (particles[emitters[em_index].parti_indices[i]].life > 1.0f)
 				{
-					kill_particle(&emitters[em_index], i);
+					kill_particle(emitters[em_index], i);
 					i--;
 					continue;
 				}
@@ -618,23 +815,23 @@ namespace end
 			}
 		}
 
-		void clear_particles(Emitter* em)
+		void clear_particles(Emitter& em)
 		{
-			for (int i = 0; i < em->parti_indices.size(); i++)
+			for (int i = 0; i < em.parti_indices.size(); i++)
 			{
 				// free particle
-				particles.free(em->parti_indices[i]);
+				particles.free(em.parti_indices[i]);
 				// free indice
-				em->parti_indices.free(i);
+				em.parti_indices.free(i);
 			}
 		}
 
-		void kill_particle(Emitter* em, int index)
+		void kill_particle(Emitter& em, int index)
 		{
 			// free particle
-			particles.free(em->parti_indices[index]);
+			particles.free(em.parti_indices[index]);
 			// free indice
-			em->parti_indices.free(index);
+			em.parti_indices.free(index);
 		}
 #endif
 
@@ -643,7 +840,8 @@ namespace end
 			// TODO:
 			//Clean-up
 #if RENDER_PARTICLES
-			clear_particles(&emitters[0]);
+			for (int i = 0; i < NUM_OF_EMITTERS; i++)
+				clear_particles(emitters[i]);
 #endif
 			//
 			// In general, release objects in reverse order of creation

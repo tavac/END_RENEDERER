@@ -9,7 +9,13 @@ namespace end
 	class sorted_pool_t
 	{
 	public:
-		sorted_pool_t() {};
+		sorted_pool_t()
+		{
+			for (int i = 0; i < N; i++)
+			{
+				pool[i] = -1;
+			}
+		};
 		// Todo: Implement the function bodies
 
 		// Returns the number of active elements
@@ -63,9 +69,11 @@ namespace end
 		// Returns -1 if no free elements remain
 		int16_t alloc()
 		{
-			if (size < N)
+			if (free_start > -1 /*&& (pool[free_start].next >= 0 && pool[free_start].next < N)*/)
 			{
+
 				int16_t index = free_start;
+				//assert(pool[index].next < N && pool[index].next >= 0);
 				free_start = pool[index].next;
 				size++; // size of used space
 				return index;
@@ -77,18 +85,21 @@ namespace end
 		// Adds 'index' to the free list
 		void free(int16_t index)
 		{
+			int n = N;
 			pool[index].next = free_start;
+			//assert(pool[index].next < N && pool[index].next >= 0);
 			free_start = index;
 			size--; // size of used space
 		};
 
 		// Initializes the free list
-		pool_t() 
+		pool_t()
 		{
-			for (int i = 0; i < N-1; i++)
+			for (int i = 0; i < N - 1; i++)
 			{
 				pool[i].next = i + 1;
 			}
+			pool[N - 1].next = -1;
 		};
 
 		// Returns the value at the specified index
