@@ -62,6 +62,51 @@ namespace end
 		float offset;
 	};
 
+	struct AABB
+	{
+		AABB(XMVECTOR _min, XMVECTOR _max, XMMATRIX _mtx) : vmin(_min), vmax(_max), mtx(_mtx) {};
+		XMVECTOR vmin, vmax;
+		XMMATRIX mtx;
+		XMVECTOR points[8];
+		void calc_points()
+		{
+			for (int i = 0; i < 8; i++)
+				points[i] = mtx.r[3];
+
+			points[0].m128_f32[0] += vmax.m128_f32[0];
+			points[0].m128_f32[1] += vmax.m128_f32[1];
+			points[0].m128_f32[2] += vmax.m128_f32[2];
+
+			points[1].m128_f32[0] += vmin.m128_f32[0];
+			points[1].m128_f32[1] += vmin.m128_f32[1];
+			points[1].m128_f32[2] += vmin.m128_f32[2];
+
+			points[2].m128_f32[0] += vmax.m128_f32[0];
+			points[2].m128_f32[1] += vmin.m128_f32[1];
+			points[2].m128_f32[2] += vmin.m128_f32[2];
+
+			points[3].m128_f32[0] += vmax.m128_f32[0];
+			points[3].m128_f32[1] += vmax.m128_f32[1];
+			points[3].m128_f32[2] += vmin.m128_f32[2];
+
+			points[4].m128_f32[0] += vmin.m128_f32[0];
+			points[4].m128_f32[1] += vmax.m128_f32[1];
+			points[4].m128_f32[2] += vmax.m128_f32[2];
+
+			points[5].m128_f32[0] += vmin.m128_f32[0];
+			points[5].m128_f32[1] += vmin.m128_f32[1];
+			points[5].m128_f32[2] += vmax.m128_f32[2];
+
+			points[6].m128_f32[0] += vmax.m128_f32[0];
+			points[6].m128_f32[1] += vmin.m128_f32[1];
+			points[6].m128_f32[2] += vmax.m128_f32[2];
+
+			points[7].m128_f32[0] += vmin.m128_f32[0];
+			points[7].m128_f32[1] += vmax.m128_f32[1];
+			points[7].m128_f32[2] += vmin.m128_f32[2];
+		}
+	}
+
 #if LOOK_AT
 	void look_at(XMMATRIX& mtx, XMMATRIX& tgt)
 	{
@@ -1120,6 +1165,6 @@ namespace end
 
 
 		}
-		};
-
 	};
+
+};
