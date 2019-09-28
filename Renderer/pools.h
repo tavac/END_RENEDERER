@@ -11,10 +11,10 @@ namespace end
 	public:
 		sorted_pool_t()
 		{
-			for (int i = 0; i < N; i++)
-			{
-				pool[i] = -1;
-			}
+			//for (int i = 0; i < N; i++)
+			//{
+			//	pool[i] = -1;
+			//}
 		};
 		// Todo: Implement the function bodies
 
@@ -49,7 +49,7 @@ namespace end
 			//pool[index] = pool[active_count];
 			//pool[active_count] = element_1;
 			//--active_count;
-			std::swap(pool[index], pool[--active_count]);
+			std::swap(pool[index], pool[--active_count]); 
 		}
 
 	private:
@@ -69,9 +69,9 @@ namespace end
 		// Returns -1 if no free elements remain
 		int16_t alloc()
 		{
-			if (free_start > -1 /*&& (pool[free_start].next >= 0 && pool[free_start].next < N)*/)
+			int n = N;
+			if (free_start > -1 && free_start < n/*&& (pool[free_start].next >= 0 && pool[free_start].next < N)*/)
 			{
-
 				int16_t index = free_start;
 				//assert(pool[index].next < N && pool[index].next >= 0);
 				free_start = pool[index].next;
@@ -99,7 +99,7 @@ namespace end
 			{
 				pool[i].next = i + 1;
 			}
-			pool[N - 1].next = -1;
+			//pool[N - 1].next = -1;
 		};
 
 		// Returns the value at the specified index
@@ -114,6 +114,7 @@ namespace end
 			return pool[index].value;
 		};
 
+		int16_t size = 0;
 	private:
 
 		union element_t
@@ -126,6 +127,5 @@ namespace end
 		element_t pool[N];
 
 		int16_t free_start = 0;
-		int16_t size = 0;
 	};
 }
