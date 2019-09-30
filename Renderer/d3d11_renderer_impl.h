@@ -10,12 +10,12 @@
 
 // NOTE: This header file must *ONLY* be included by renderer.cpp
 
-#define FREE_POOL_TEST		1
-#define SORTED_POOL_TEST	1
+#define FREE_POOL_TEST		0
+#define SORTED_POOL_TEST	0
 #define RENDER_PARTICLES	0 // NO WORKING PROPERLY
 #define LOOK_AT				1
 #define TURN_TO				1
-#define MOUSE_CAM			1
+#define MOUSE_CAM			0
 #define FRUSTUM				1
 
 namespace
@@ -183,9 +183,12 @@ namespace end
 		XMMATRIX rotationY = XMMatrixRotationAxis(mtx.r[1], degree);
 		mtx = XMMatrixMultiply(rotationY, mtx);
 
-		HowMuchThisWayIsThatThingGoing = XMVector3Dot(XMVector3Normalize(nZ), mtx.r[1]);
-		degree = fabs(HowMuchThisWayIsThatThingGoing.m128_f32[0]) * (3.14156f / 180.0f);
-		XMMATRIX rotationX = XMMatrixRotationAxis(XMVector3Normalize(mtx.r[0]), degree);
+		//mtx_stabilize(mtx);
+
+		//nZ = tgt.r[3] - mtx.r[3];
+		HowMuchThisWayIsThatThingGoing = XMVector3Dot(nZ, XMVector3Normalize(mtx.r[1]));
+		degree = HowMuchThisWayIsThatThingGoing.m128_f32[0] * (3.14156f / 180.0f);
+		XMMATRIX rotationX = XMMatrixRotationAxis(mtx.r[0], degree);
 		mtx = XMMatrixMultiply(rotationX, mtx);
 
 		mtx_stabilize(mtx);
